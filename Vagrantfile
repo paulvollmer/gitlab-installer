@@ -28,6 +28,7 @@ Vagrant.configure("2") do |config|
 
   # GitLab recommended specs
   config.vm.provider "virtualbox" do |v, override|
+    v.name = "gitlab-vm"
     v.customize [ "modifyvm", :id, "--cpus", "2" ]
     v.customize [ "modifyvm", :id, "--memory", "2048" ]
   end
