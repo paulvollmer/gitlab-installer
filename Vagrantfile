@@ -9,6 +9,11 @@ Vagrant.configure("2") do |config|
   config.vm.define :gitlab do |config|
     # Configure some hostname here
     # config.vm.hostname = "gitlab.invalid"
+
+    # Configure ssh name and password
+    #config.ssh.username = "gitlab"
+    #config.ssh.password = "gitlab-secret"
+
     config.vm.box = "chef/ubuntu-14.04"
     config.vm.provision :shell, :path => "install-gitlab.sh"
 
@@ -28,6 +33,7 @@ Vagrant.configure("2") do |config|
 
   # GitLab recommended specs
   config.vm.provider "virtualbox" do |v, override|
+    v.name = "gitlab-vm"
     v.customize [ "modifyvm", :id, "--cpus", "2" ]
     v.customize [ "modifyvm", :id, "--memory", "2048" ]
   end
