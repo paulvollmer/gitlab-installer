@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Copyright 2013-2014 Tuomo Tanskanen <tuomo@tanskanen.org>
+# Copyright 2013, 2014, 2015 Tuomo Tanskanen <tuomo@tanskanen.org>
 
 set -e
 
-# Gitlab version to install
-DEB="gitlab_7.7.1-omnibus.5.4.1.ci-1_amd64.deb"
-DEB_MD5="5d9cd9d1945b8230088a384d33c92c0b"
-DEB_URL="https://downloads-packages.s3.amazonaws.com/ubuntu-14.04"
+# Gitlab flavor to install
+GITLAB_FLAVOR="gitlab-ce"
 
 # This is for postfix
 GITLAB_HOSTNAME="gitlab.invalid"
@@ -15,8 +13,6 @@ GITLAB_HOSTNAME="gitlab.invalid"
 # Use provided gitlab.rb.example as base
 #
 [ ! -e /vagrant/gitlab.rb ] && { echo "error: gitlab.rb missing"; exit 1; }
-
-
 
 
 #
@@ -34,29 +30,12 @@ check_for_root()
   [[ $EUID = 0 ]] || { echo "error: need to be root" && exit 1; }
 }
 
-download_package()
-{
-  mkdir -p "$CACHE" && cd "$CACHE"
-  if [[ -e "$DEB" ]] && [[ $(md5sum "$DEB" | cut -f1 -d " ") = $DEB_MD5 ]]; then
-    echo "Package has been downloaded previously, using cached binary."
-  else
-    [[ -e "$DEB" ]] && rm -f "$DEB" && echo "Package hash does not match, re-downloading."
-    echo "Executing: wget -nc -q $DOWNLOAD"
-  fi
-
-  wget -nc -q $DOWNLOAD
-  if [[ $(md5sum $DEB | cut -f1 -d " ") != $DEB_MD5 ]]; then
-    echo "error: Package hash is still not valid, exiting ..."
-    exit 1
-  fi
-}
-
 # All commands expect root access.
 check_for_root
 
 # install tools to automate this install
 apt-get -y update
-apt-get -y install debconf-utils wget
+apt-get -y install debconf-utils wget curl
 
 # install the few dependencies we have
 echo "postfix postfix/main_mailer_type select Internet Site" | debconf-set-selections
@@ -64,13 +43,14 @@ echo "postfix postfix/mailname string $GITLAB_HOSTNAME" | debconf-set-selections
 apt-get -y install openssh-server postfix
 
 # generate ssl keys
-apt-get -y install ssl-cert
+apt-get -y install ca-certificates ssl-cert
 make-ssl-cert generate-default-snakeoil --force-overwrite
 
 # download omnibus-gitlab package (250M) and cache it
-echo "Downloading Gitlab package. This may take a while ..."
-download_package
-dpkg -i $CACHE/$DEB
+echo "Setting up Gitlab deb repository ..."
+curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
+echo "Installing $GITLAB_FLAVOR via apt ..."
+apt-get install -y $GITLAB_FLAVOR
 
 # fix the config and reconfigure
 cp /vagrant/gitlab.rb /etc/gitlab/gitlab.rb
@@ -79,4 +59,4 @@ gitlab-ctl reconfigure
 # done
 echo "Done!"
 echo " Login at your host:port with 'root' + '5iveL!fe'"
-echo " Config found at /etc/gitlab/gitlab.rb and updated by 'gitlab-ctl reconfigure'"
+echo " Config found at /etc/gitlab/gitlab.rb and updated by 'sudo gitlab-ctl reconfigure'"
